@@ -29,10 +29,37 @@ get the api-key []
 
 =====================
 Installed:
-pip install -U phidata
+main:
+pip install phidata groq python-dotenv
+
+tools:
+pip install duckduckgo-search googlesearch-python pycountry wikipedia
+
+
 
 
 
 =====================
 Resources:
-https://console.groq.com/keys (For Ai models)
+https://console.groq.com/keys (For Ai models and (Free Api keys))
+
+
+=====================
+Notes:
+wikipedia-api installed but not used (yet)
+
+
+=====================
+Better code:
+
+---- SET SUBTRACTION WAY ----
+REQUIRED_KEYS = {"A", "B", "C"}
+data = {"A": 1, "C": 3}
+missing = REQUIRED_KEYS - data.keys() 
+
+---- TRADITIONAL WAY ----
+missing = []
+for k in REQUIRED_KEYS:
+    if k not in data:
+        missing.append(k)
+
