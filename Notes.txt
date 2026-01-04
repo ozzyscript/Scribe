@@ -1,0 +1,38 @@
+Q: What a Scribe is?
+A: It is an Ai Agent that 
+1 Org ideas
+2 validate statements
+3 search internet for questions
+4 give recommendations  
+
+=====================
+It must return data in JSON format
+
+List of Tools [
+Wikipdia, Google-search, Duck-Duck-Go
+]
+
+
+=====================
+Work Flow:
+User => add content to the .txt file
+Agent => pull that content, org it, answer questions, provide suggestions 
+         return all that as JSON format file.
+Dev => org that content and return it as .md file.
+
+=====================
+Things to do:
+create a venv env []
+install phidata, grok, tools list []
+create account on phidata []
+get the api-key []
+
+=====================
+Installed:
+pip install -U phidata
+
+
+
+=====================
+Resources:
+https://console.groq.com/keys (For Ai models)
