@@ -1,4 +1,23 @@
 
+"""
+What is it?
+Scribe is an agent that helps you to organize ides, find answers
+and prove your assumptions.
+
+How it works?
+You brainstorm a topic in Text file, then provide the file path
+to the agent.
+
+The agent loads the content, organize it, search internet for 
+the given and assumption.
+
+Finally creates a Markdown file and add to it the answers, 
+proved assumptions, resources, recommendations and a short summary.
+
+So the final result is a clean well organized file.
+"""
+
+
 from phi.agent.agent import Agent
 from phi.model.groq.groq import Groq
 from phi.tools.duckduckgo import DuckDuckGo
@@ -6,33 +25,53 @@ from phi.tools.googlesearch import GoogleSearch
 from phi.tools.wikipedia import WikipediaTools
 from dotenv import load_dotenv
 import datetime, time
-import sys
+import sys, json, os
+
+
 load_dotenv()
-import json
 
 
-# Add date/time/title for tracking
 now = datetime.datetime.now()
-title = f"Scribed_{now.strftime('%Y-%m-%d_%H-%M')}"
+datetime_creation = now.strftime('%Y-%m-%d_%H-%M')
 
 
 NOTES_FILE_PATH = "/home/ozirx/OZiRX/Tech/PRJs/Scribe/thinking.txt"
+OUTPUT_FILE_PATH = "/home/ozirx/OZiRX/Tech/PRJs/Scribe"
 
-# Schema validation to prevent silent corruption 
-REQUIRED_KEYS = {
-    "Assumptions",
-    "Questions",
-    "Self-Answers",
-    "Verified Answers",
-    "Resources",
-    "Summary",
-    "Recommendations",
-    "Date",
-    "Title",
-    "Tools",
-}
+
+# ===============================================
+#                 Pure Utilities
+# ===============================================
+
+def parse_response_content(response):
+    try:
+        data = json.loads(response)
+    except json.JSONDecodeError as e:
+        raise ValueError(f"invalid json returned by agent:\n{e}")
+    if "error" in data:
+        raise RuntimeError(f"Agent error:{data["error"]}")
+    return data
+
+
+def extract_and_format(parsed_resopnse,cat_name):
+    content = ""
+    for elem in parsed_resopnse[cat_name]:
+        content += f"- {elem}\n"
+    return content 
+
+
+
+# ===============================================
+#            Side-effect Utilities
+# ===============================================
+# A function has side effects if it does anything
+# beyond returning a value.
+
 
 def load_file_content(file_path):
+    
+    """Load file content and make sure it is not empty"""
+    
     try:
         with open(file_path, "r") as f:
             content = f.read().strip()
@@ -47,120 +86,31 @@ def load_file_content(file_path):
         raise RuntimeError(f"Unexpected error {e}") from e
 
 
+def save_content(file_path:str, file_name:str, content:str):
+    proper_name = file_name.replace(" ","_")
+    full_path = os.path.join(file_path,f"{proper_name}.md")
+    
+    # if dirs(folders) not exist create them.
+    os.makedirs(file_path, exist_ok=True)
 
 
-file_content = load_file_content(NOTES_FILE_PATH)
+    try:
+        with open(f"{full_path}", "w") as f:
+            f.write(content)
+        print(f"file saved at {full_path}")
+    except Exception as e:
+        print(f"Failed to save file. Reason:\n {e}")
 
 
+def safe_agent_run(agent,prompt, retries=3, delay=0.5):
 
+    """ Slow down retries of external API/tools if first 
+        try failed, to avoid rate-limiting, temp-ban or IP block.
+    """
 
-
-PROMPT = f"""
-You are an advanced AI organizing agent with access to DuckDuckGo, Google Search, and Wikipedia.
-
-Your role:
-- Analyze brainstorm notes
-- Extract structure
-- Verify questions using web tools
-- Return a clean, machine-readable JSON response
-
-TASKS:
-1. Analyze the provided notes as plain text.
-2. Extract:
-   - Questions
-   - Ideas
-   - Self-answers (if present)
-3. For each extracted question:
-   - Use web tools ONLY when external verification is needed
-   - Prefer Wikipedia for factual background
-   - Prefer search engines for comparisons, jobs, trends, or up-to-date info
-4. Synthesize verified answers based on reliable sources.
-5. Provide concise recommendations and resources.
-
-INVALID CONTENT HANDLING:
-- If the notes are empty, meaningless, or non-textual, return ONLY this JSON object and stop:
-
-  "error": "Invalid or insufficient content"
-
-
-OUTPUT FORMAT (MANDATORY):
-- Return ONE valid JSON object
-- No explanations
-- No markdown
-- No tool logs
-- No text outside JSON
-- Response MUST start with '{' and end with '}'
-
-JSON SCHEMA (STRICT):
-
-  "Assumptions": "string",
-  "Questions": ["string"],
-  "Self-Answers": ["string"],
-  "Verified Answers": ["string"],
-  "Resources": ["string"],
-  "Summary": "string",
-  "Recommendations": ["string"],
-  "Date": "YYYY-MM-DD",
-  "Title": "string",
-  "Tools": ["string"]
-
-
-Notes:
-\"\"\"{file_content}\"\"\"
-"""
-
-INSTRUNCTIONS  = [
-"""
-Initialization: Confirm that the brainstorm notes are successfully loaded.
-If no notes are found, return a clear message indicating the issue.""",
-"""
-Extraction:
-Identify and extract all questions, ideas, and self-answers from the notes.
-Categorize the extracted elements into distinct sections for clarity.
-""",
-
-"""
-Verification:
-For each identified question, perform a search using DuckDuckGo, Google Search, and Wikipedia to find accurate and up-to-date answers.
-Verify the reliability of the sources and provide a summary of the verified information.
-""",
-"""
-Organization:
-Structure the output in a consistent JSON format with clearly defined sections: Your Thoughts, Questions, Self-Answers, Verified Answers,Resources, Summary, Recommendations, Date, and Title.
-""",
-
-"""
-Formatting:
-Ensure that the final output is well-structured and formatted in JSON for easy extraction and further use.
-""",
-
-"""
-Feedback and Recommendations:
-Provide constructive feedback based on the content of the notes.
-Offer actionable recommendations and additional resources to help improve or expand on the brainstormed ideas.
-"""
-]
-
-scribe = Agent(
-    name="Scribe",
-    model=Groq(id="llama-3.3-70b-versatile"),
-    tools=[
-    GoogleSearch(),
-    DuckDuckGo(),
-    WikipediaTools()
-    ],
-    instructions=INSTRUNCTIONS,
-    show_tool_calls=True,
-    # markdown=True,
-
-)
-
-
-# Delay to prevent rate limiting
-def safe_agent_run(prompt, retries=3, delay=2):
     for i in range(retries):
         try:
-            response = scribe.run(prompt)
+            response = agent.run(prompt)
             return response
         except Exception as e:
             print(f"Attempt {i+1} failed: {e}")
@@ -168,45 +118,210 @@ def safe_agent_run(prompt, retries=3, delay=2):
     raise RuntimeError("All retries failed.")
 
 
+# ===============================================
+#            Prompt and Instructions 
+# ===============================================
+# Notes: 
+# The more precise prompt is, the better result you get.
+# Instructions: Who the agent is and how it should behave
+# Prompt: What the agent should do right now
 
-def parse_and_validate_agent_response(raw_text) -> dict:
-
-    # Handle accidental string-wrapped JSON
-    # remove '' around {} if exist 
-    if raw_text.startswith("'") and raw_text.endswith("'"):
-        raw_text = raw_text[1:-1].strip()
-
-    # Parsing response
-    try:
-        data = json.loads(raw_text)
-    except json.JSONDecodeError as e:
-        raise ValueError(f"Invalid JSON returned by agent:\n{e}")
-
-    # Agent level error handling
-    if "error" in data:
-        raise RuntimeError(f"Agent error:{data["error"]}")
-
-    # Schema validation (set)
-    # subtract the keys, what's left is the missing one 
-    missing = REQUIRED_KEYS - data.keys()
-    if missing:
-        raise ValueError(f"A key or more is missing in the ageent response: {missing}")
-    
-    return data
-
-# print("=================Response =================")
-# print(response.content)
-# print("============================================")
-
-response = safe_agent_run(PROMPT)
-
-data = parse_and_validate_agent_response(response.content)
+file_content = load_file_content(NOTES_FILE_PATH)
 
 
-print(data["Questions"])
-print(data["Recommendations"])# Save output
-# with open(f"/home/ozirx/OZiRX/Tech/PRJs/Scribe/{title}.md", "w") as f:
-#     f.write(response.content)
-#
-# print(f"Output saved to {title}.md")
+PROMPT = f"""
+You are an expert brainstorm helper assistant.
+
+You have access to the following tools:
+["Google Search", "Wikipedia", "DuckDuckGo"]
+
+Use tools ONLY when external knowledge is required to verify facts,
+check assumptions, or provide reliable resources.
+Do NOT search unnecessarily.
+
+The user provides raw brainstorm notes as plain text.
+The notes may be messy, informal, incomplete, or contain assumptions,
+questions, spelling mistakes, and mixed ideas.
+
+Your responsibilities:
+
+1. Organize the content into clear ideas without changing the meaning.
+2. Correct obvious spelling mistakes ONLY when the meaning is clear.
+3. Identify assumptions made by the user (explicit or implicit).
+4. For each assumption:
+   - State it clearly using this format:
+     "Your assumption was: <assumption>"
+   - Verify it using reliable sources when needed.
+   - Respond with:
+     - "Yes, this assumption is correct."
+     - OR "No, this assumption is incorrect. The correct information is: <correction>"
+5. Identify questions in the notes (explicit or implied).
+   - If answering requires external knowledge, use tools.
+   - Present answers in a clear question → answer style.
+6. Extract and provide helpful resources related to the topic.
+   Resources may include:
+     - Official websites
+     - Trusted articles
+     - Books
+     - Videos
+     - Communities
+   Prefer official and well-established sources.
+7. Write a short, clear summary of the topic in simple language.
+8. Provide practical, realistic recommendations to help the user move forward.
+9. Generate a short, clear title that reflects the main topic.
+
+IMPORTANT RULES:
+- Do NOT invent facts or questions.
+- Do NOT over-correct grammar or rewrite the user's ideas.
+- Do NOT include unverified or low-quality resources.
+- Keep answers realistic and grounded.
+- Maintain a consistent response structure.
+
+Resources rule:
+- Do NOT blindly reuse links found in the user's notes.
+- If links appear in the notes, treat them as "user-saved links".
+- Only include a link in "Resources" if it is relevant, trustworthy,
+  and adds value beyond what the user already provided.
+- Prefer adding NEW, high-quality resources when possible.
+- If no better resources exist, you may include selected user links,
+  but only after evaluation.
+
+Summary rule:
+- The Summary MUST reflect the final understanding after analysis.
+- It should be based on the verified answers and assumption checks,
+  NOT a recap of the user's original notes.
+- The summary should answer: "What should the user now understand?"
+
+CLARIFICATIONS:
+- "Resources" must be curated by you. Do NOT automatically reuse links
+  found in the user's notes unless they are evaluated and still useful.
+- The "Summary" must summarize the conclusions and insights you produced
+  after verification, not the user's raw brainstorm.
+
+INVALID INPUT:
+- If the input is meaningless, empty, or non-textual, return ONLY:
+
+
+  "error": "Invalid or insufficient content"
+
+
+OUTPUT FORMAT (MANDATORY):
+- Return ONE valid JSON object.
+- No markdown.
+- No explanations.
+- No text outside JSON.
+- Output MUST start with '{' and end with '}'.
+
+JSON SCHEMA (STRICT):
+
+  "Ideas": ["string"],
+  "Assumptions": ["string"],
+  "Assumption Checks": ["string"],
+  "Questions": ["string"],
+  "Verified Answers": ["string"],
+  "Resources": ["string"],
+  "Summary": ["string"],
+  "Recommendations": ["string"],
+  "Title": "string",
+  "Tools": ["string"]
+
+
+User brainstorm file content:
+\"\"\"{file_content}\"\"\"
+"""
+
+
+INSTRUCTIONS = [
+    "You are an expert brainstorm helper agent.",
+    "Your primary role is to help the user clarify and structure their raw brainstorm notes.",
+    "You may use Google Search, DuckDuckGo, and Wikipedia ONLY when external knowledge is required.",
+    "Do NOT use tools unnecessarily or by default.",
+    "Keep answers realistic, grounded, and concise.",
+   """Resources rule (STRICT):
+- Only include resources if they add NEW value beyond common knowledge.
+- If no high-quality external resource is clearly useful, return an empty list.
+- Do NOT include generic sites by default.
+""",
+"""
+Tool selection rules:
+- Use Google Search first then DuckDuckGo if needed for specific, up-to-date, or complex queries (like salaries, visa requirements, local regulations).
+- Use Wikipedia only for general knowledge, definitions, or historical/contextual info.
+- If Wikipedia returns PageError, do not retry infinitely; move on to search engines.
+"""
+]
+
+
+# ===============================================
+#              Agent Configuration
+# ===============================================
+
+AGENT_SCRIBE_CONFIG = {
+    "name": "Scribe",
+    "model":[
+        "llama-3.3-70b-versatile",
+        "moonshotai/kimi-k2-instruct-0905",
+        "openai/gpt-oss-120b",
+    ],
+    "tools": [GoogleSearch(), DuckDuckGo(), WikipediaTools()],
+    "instructions": INSTRUCTIONS,
+}
+
+
+def agent_scribe(config):
+    return Agent(
+        name=config["name"],
+        model=Groq(id=config["model"][1]),
+        tools=config["tools"],
+        instructions=config["instructions"],
+        show_tool_calls=False,
+        markdown=False,
+
+    )
+
+# ===============================================
+#           Layout (formatting output) 
+# ===============================================
+
+def create_markdown(parsed_response):
+    title = parsed_response["Title"]
+    ideas = extract_and_format(parsed_response, "Ideas")
+    assumptions = extract_and_format(parsed_response, "Assumptions")
+    assumptions_checks = extract_and_format(parsed_response, "Assumption Checks")
+    questions = extract_and_format(parsed_response, "Questions")
+    verified_answers = extract_and_format(parsed_response, "Verified Answers")
+    resources = extract_and_format(parsed_response, "Resources")
+    recommendations = extract_and_format(parsed_response, "Recommendations")
+    summary = parsed_response['Summary']
+
+
+    result = f"""
+
+#{title}\n
+###{datetime_creation}\n
+##Ideas\n{ideas}\n\n
+##Assumptions\n{assumptions}\n
+##Checked Assumptions\n{assumptions_checks}\n\n
+##Questions Found\n{questions}\n\n
+##Questions Answered\n{verified_answers}\n\n
+##Resources\n{resources}\n\n
+##Recommendations\n{recommendations}\n\n
+##Summary\n{summary}\n
+    """
+    return result
+
+
+def main():
+    scribe = agent_scribe(AGENT_SCRIBE_CONFIG)
+    response = safe_agent_run(scribe,PROMPT)
+    response_content = response.content
+    parsed_response = parse_response_content(response_content)
+    file_name = parsed_response["Title"]
+    markdown_content = create_markdown(parsed_response)
+    save_content(OUTPUT_FILE_PATH,file_name,markdown_content)
+
+if __name__ == "__main__":
+    main()
+
+
+
 

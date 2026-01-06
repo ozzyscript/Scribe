@@ -63,3 +63,33 @@ for k in REQUIRED_KEYS:
     if k not in data:
         missing.append(k)
 
+
+=====================
+Challenges:
+the most challenging part was writing the right prompt for the agent,to make it do exactly as I want.
+
+
+=====================
+Things I have learned:
+Side-effect vs Pure functions
+Side Effects — Quick Rule
+
+A function has side effects if it does anything beyond returning a value.
+
+A function HAS side effects if it:
+Reads or writes files
+Calls the network / APIs / LLMs
+Prints, logs, or outputs to the user
+Modifies global variables
+Modifies objects passed into it
+Depends on time or randomness
+Exits or affects program flow
+
+A function is side-effect free (pure) if:
+Same input → same output
+No I/O
+No mutation outside the function
+No time, randomness, or globals
+
+Rule of thumb:
+If the world could notice the function ran, it has side effects.
