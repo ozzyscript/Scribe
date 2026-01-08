@@ -35,6 +35,9 @@ pip install phidata groq python-dotenv
 tools:
 pip install duckduckgo-search googlesearch-python pycountry wikipedia
 
+Telegram:
+pip install python-telegram-bot
+
 
 
 
