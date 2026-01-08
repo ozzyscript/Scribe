@@ -1,20 +1,23 @@
 
 """
 What is it?
-Scribe is an agent that helps you to organize ides, find answers
-and prove your assumptions.
+Scribe is an AI agent that helps you to organize ides, find answers
+and verify your assumptions.
 
-How it works?
+How does it work?
 You brainstorm a topic in Text file, then provide the file path
 to the agent.
 
-The agent loads the content, organize it, search internet for 
-the given and assumption.
+The agent analyzes the content, organize ideas, identifies questions and assumptions,
+and searches internet when needed to verify info.
 
-Finally creates a Markdown file and add to it the answers, 
-proved assumptions, resources, recommendations and a short summary.
+Finally agent sends you back an organized message with answers, 
+verified assumptions, resources, recommendations and a short summar
 
 So the final result is a clean well organized file.
+
+NOTE:
+This project was for learning purpose, of course it has mistakes. This is how we learn.
 """
 
 
@@ -32,7 +35,7 @@ load_dotenv()
 
 
 now = datetime.datetime.now()
-datetime_creation = now.strftime('%Y-%m-%d_%H-%M')
+datetime_creation = now.strftime('%Y-%m-%d %H:%M')
 
 
 NOTES_FILE_PATH = "/home/ozirx/OZiRX/Tech/PRJs/Scribe/thinking.txt"
@@ -43,21 +46,46 @@ OUTPUT_FILE_PATH = "/home/ozirx/OZiRX/Tech/PRJs/Scribe"
 #                 Pure Utilities
 # ===============================================
 
-def parse_response_content(response):
+def parse_response_content(response: str):
+    """
+    Get the agent response and parse it to a valid JSON 
+    """
+    if not response or not response.strip():
+        raise ValueError("Agent returned empty response")
+
+    response = response.strip()
+
+    # Remove markdown fences if present
+    if response.startswith("```"):
+        response = response.strip("`")
+        response = response.replace("json", "", 1).strip()
+
+    # Remove wrapping quotes 
+    if (
+        (response.startswith("'") and response.endswith("'")) or
+        (response.startswith('"') and response.endswith('"'))
+    ):
+        response = response[1:-1].strip()
+
     try:
-        data = json.loads(response)
+        return json.loads(response)
     except json.JSONDecodeError as e:
-        raise ValueError(f"invalid json returned by agent:\n{e}")
-    if "error" in data:
-        raise RuntimeError(f"Agent error:{data["error"]}")
-    return data
+        raise ValueError(
+            f"Invalid JSON returned by agent:\n{e}\n\nRaw response:\n{response}"
+        )
+
 
 
 def extract_and_format(parsed_resopnse,cat_name):
+    """
+    Extract the values of each key in the response
+    """
     content = ""
     for elem in parsed_resopnse[cat_name]:
         content += f"- {elem}\n"
     return content 
+
+
 
 
 
@@ -87,6 +115,9 @@ def load_file_content(file_path):
 
 
 def save_content(file_path:str, file_name:str, content:str):
+    """
+    Save formatted response to the file. Create it if not exist.
+    """
     proper_name = file_name.replace(" ","_")
     full_path = os.path.join(file_path,f"{proper_name}.md")
     
@@ -283,6 +314,9 @@ def agent_scribe(config):
 # ===============================================
 
 def create_markdown(parsed_response):
+    """
+    Format the response into a markdown for telegram
+    """
     title = parsed_response["Title"]
     ideas = extract_and_format(parsed_response, "Ideas")
     assumptions = extract_and_format(parsed_response, "Assumptions")
@@ -309,6 +343,11 @@ def create_markdown(parsed_response):
     """
     return result
 
+
+
+# ===============================================
+#           Main Starting Point 
+# ===============================================
 
 def main():
     scribe = agent_scribe(AGENT_SCRIBE_CONFIG)

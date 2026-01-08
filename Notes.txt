@@ -1,3 +1,80 @@
+
+NOTE:
+This file is not well organized, but you can consider 
+it a simple guide.
+
+========== Libs installed ============
+
+Note: Create a virtual env first then install inside it.
+
+Main:  
+pip install phidata groq python-dotenv python-telegram-bot
+
+Tools: 
+pip install duckduckgo-search googlesearch-python pycountry wikipedia
+
+
+
+======== Things you need to do after installation ========
+
+Create an account on groq website (For Ai models and (Free Api keys))
+https://console.groq.com/keys
+
+Get API key from telegram bot (@BotFather) make it sure has a blue mark.
+
+
+======== Things to keep in mind =======
+
+Store API keys in .env file
+Before doing "git add" add .env file to .ignore file. 
+
+
+
+======== Challenging parts ========
+
+The most challenging part was writing the right prompt for the agent,to make it act exactly as I want.
+
+
+========= Things I have learned ==========
+
+Side-effect vs Pure functions
+Side Effects — Quick Rule
+
+A function has side effects if it does anything beyond returning a value.
+
+A function HAS side effects if it:
+Reads or writes files
+Calls the network / APIs / LLMs
+Prints, logs, or outputs to the user
+Modifies global variables
+Modifies objects passed into it
+Depends on time or randomness
+Exits or affects program flow
+
+A function is side-effect free (pure) if:
+Same input → same output
+No I/O
+No mutation outside the function
+No time, randomness, or globals
+
+========== Better code =========
+
+---- SET SUBTRACTION WAY ----
+REQUIRED_KEYS = {"A", "B", "C"}
+data = {"A": 1, "C": 3}
+missing = REQUIRED_KEYS - data.keys() 
+
+---- TRADITIONAL WAY ----
+missing = []
+for k in REQUIRED_KEYS:
+    if k not in data:
+        missing.append(k)
+
+
+
+
+====== How I was thinking while building the Agent =======
+
 Q: What a Scribe is?
 A: It is an Ai Agent that 
 1 Org ideas
@@ -23,8 +100,8 @@ Dev => org that content and return it as .md file.
 =====================
 Things to do:
 create a venv env []
-install phidata, grok, tools list []
-create account on phidata []
+install phidata, groq, tools list []
+create account on groq []
 get the api-key []
 
 =====================
@@ -38,10 +115,6 @@ pip install duckduckgo-search googlesearch-python pycountry wikipedia
 Telegram:
 pip install python-telegram-bot
 
-
-
-
-
 =====================
 Resources:
 https://console.groq.com/keys (For Ai models and (Free Api keys))
@@ -52,47 +125,4 @@ Notes:
 wikipedia-api installed but not used (yet)
 
 
-=====================
-Better code:
 
----- SET SUBTRACTION WAY ----
-REQUIRED_KEYS = {"A", "B", "C"}
-data = {"A": 1, "C": 3}
-missing = REQUIRED_KEYS - data.keys() 
-
----- TRADITIONAL WAY ----
-missing = []
-for k in REQUIRED_KEYS:
-    if k not in data:
-        missing.append(k)
-
-
-=====================
-Challenges:
-the most challenging part was writing the right prompt for the agent,to make it do exactly as I want.
-
-
-=====================
-Things I have learned:
-Side-effect vs Pure functions
-Side Effects — Quick Rule
-
-A function has side effects if it does anything beyond returning a value.
-
-A function HAS side effects if it:
-Reads or writes files
-Calls the network / APIs / LLMs
-Prints, logs, or outputs to the user
-Modifies global variables
-Modifies objects passed into it
-Depends on time or randomness
-Exits or affects program flow
-
-A function is side-effect free (pure) if:
-Same input → same output
-No I/O
-No mutation outside the function
-No time, randomness, or globals
-
-Rule of thumb:
-If the world could notice the function ran, it has side effects.

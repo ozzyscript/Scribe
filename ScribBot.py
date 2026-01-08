@@ -1,21 +1,25 @@
 
 """
 What is it?
-Scribe is an agent that helps you to organize ides, find answers
-and prove your assumptions.
+ScribeBot is an AI agent that helps you to organize ides, find answers
+and verify your assumptions.
 
-How it works?
-You brainstorm a topic in Text file, then provide the file path
-to the agent.
+How does it work?
+You write or paste your brainstorming notes and send them to the bot.
 
-The agent loads the content, organize it, search internet for 
-the given and assumption.
+The agent analyzes the content, organize ideas, identifies questions and assumptions,
+and searches internet when needed to verify info.
 
-Finally creates a Markdown file and add to it the answers, 
-proved assumptions, resources, recommendations and a short summary.
+Finally agent sends you back an organized message with answers, 
+verified assumptions, resources, recommendations and a short summary.
 
-So the final result is a clean well organized file.
+So the final result is a clean well organized message.
+
+NOTE:
+This Bot still needs a lot of work. I have built it just for a demo.
+You can improve it farther or create your own one.
 """
+
 
 
 from phi.agent.agent import Agent
@@ -40,7 +44,7 @@ load_dotenv()
 BOT_TOKEN = os.getenv("BOT_API_KEY")
 
 now = datetime.datetime.now()
-datetime_creation = now.strftime('%Y-%m-%d %H-%M')
+datetime_creation = now.strftime('%Y-%m-%d %H:%M')
 
 
 
@@ -49,15 +53,40 @@ datetime_creation = now.strftime('%Y-%m-%d %H-%M')
 #                 Pure Utilities
 # ===============================================
 
-def parse_response_content(response):
+def parse_response_content(response: str):
+    """
+    Get the agent response and parse it to a valid JSON 
+    """
+    if not response or not response.strip():
+        raise ValueError("Agent returned empty response")
+
+    response = response.strip()
+
+    # Remove markdown fences if present
+    if response.startswith("```"):
+        response = response.strip("`")
+        response = response.replace("json", "", 1).strip()
+
+    # Remove wrapping quotes 
+    if (
+        (response.startswith("'") and response.endswith("'")) or
+        (response.startswith('"') and response.endswith('"'))
+    ):
+        response = response[1:-1].strip()
+
     try:
-        data = json.loads(response)
+        return json.loads(response)
     except json.JSONDecodeError as e:
-        raise ValueError(f"invalid json returned by agent:\n{e}")
-    return data
+        raise ValueError(
+            f"Invalid JSON returned by agent:\n{e}\n\nRaw response:\n{response}"
+        )
+
 
 
 def extract_and_format(parsed_resopnse,cat_name):
+    """
+    Extract the values of each key in the response
+    """
     content = ""
     for elem in parsed_resopnse[cat_name]:
         content += f"- {elem}\n"
@@ -72,6 +101,9 @@ def extract_and_format(parsed_resopnse,cat_name):
 # beyond returning a value.
 
 async def get_text(update):
+    """
+    Receive user input (from telegram bot)
+    """
     text = update.message.text
     if len(text.strip()) < 40:
         await update.message.reply_text("message is too short. It must has more than 40 chars.")
@@ -261,6 +293,9 @@ def agent_scribe(config):
 # ===============================================
 
 def create_markdown(parsed_response):
+    """
+    Format the response into a markdown for telegram
+    """
     title = parsed_response["Title"]
     ideas = extract_and_format(parsed_response, "Ideas")
     assumptions = extract_and_format(parsed_response, "Assumptions")
@@ -288,9 +323,14 @@ def create_markdown(parsed_response):
     return result
 
 
-
+# ===============================================
+#       Telegram Bot & User Interactions 
+# ===============================================
 
 async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    """
+    Welcome message that the user sees when presses "/start" button
+    """
     welcome_message = (
     "Hello! I am *Scribe (AI Agent)*.\n\n"
     "I’m here to help you organize your brainstorming\n\n"
@@ -304,15 +344,24 @@ async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
 
 
+
 async def msg_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    user_message = await get_text(update)
-    prompt = build_prompt(user_message)
-    scribe = agent_scribe(AGENT_SCRIBE_CONFIG)
-    response = safe_agent_run(scribe,prompt)
-    response_content = response.content
-    parsed_response = parse_response_content(response_content)
-    markdown_content = create_markdown(parsed_response)
-    await update.message.reply_text(markdown_content, parse_mode="Markdown")
+    try:
+        user_message = await get_text(update)
+        prompt = build_prompt(user_message)
+        scribe = agent_scribe(AGENT_SCRIBE_CONFIG)
+        response = safe_agent_run(scribe,prompt)
+        response_content = response.content
+        parsed_response = parse_response_content(response_content)
+        markdown_content = create_markdown(parsed_response)
+        await update.message.reply_text(markdown_content, parse_mode="Markdown")
+    except Exception as e:
+          await update.message.reply_text(
+            "Something went wrong internally. Please try again.\nMake sure the input is a text and more then 40 chars long."
+        )
+          print("UNEXPECTED ERROR:", e)
+
+
 
 
 
@@ -320,20 +369,4 @@ app = ApplicationBuilder().token(BOT_TOKEN).build()
 app.add_handler(MessageHandler(filters.TEXT & ~filters.COMMAND,msg_handler))
 app.add_handler(CommandHandler("start", start))
 app.run_polling()
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
 
